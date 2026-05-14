@@ -1,10 +1,7 @@
-import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream } from "node:fs";
-import { access, mkdir, rename, unlink } from "node:fs/promises";
+import { mkdir, rename } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
 import { readFile } from "node:fs/promises";
+import { assertSha256, downloadFile, fileExists, unlinkIfExists } from "./files.ts";
 
 export type HuggingFaceModelSource = {
     provider: "huggingface";
@@ -159,50 +156,6 @@ function buildHuggingFaceDownloadUrl(model: HuggingFaceModelSource): string {
     const filename = encodePath(model.filename);
 
     return `https://huggingface.co/${repo}/resolve/${encodeURIComponent(revision)}/${filename}?download=true`;
-}
-
-async function downloadFile(url: string, destination: string): Promise<void> {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-        throw new Error(`Model download failed: ${response.status} ${response.statusText}`);
-    }
-
-    if (response.body == null) {
-        throw new Error("Model download response did not include a body");
-    }
-
-    await pipeline(Readable.fromWeb(response.body), createWriteStream(destination));
-}
-
-async function assertSha256(path: string, expected: string): Promise<void> {
-    const actual = await sha256File(path);
-    if (actual !== expected.toLowerCase()) {
-        throw new Error(`SHA-256 mismatch for ${path}: expected ${expected}, got ${actual}`);
-    }
-}
-
-async function sha256File(path: string): Promise<string> {
-    const hash = createHash("sha256");
-    await pipeline(createReadStream(path), hash);
-    return hash.digest("hex");
-}
-
-async function fileExists(path: string): Promise<boolean> {
-    try {
-        await access(path);
-        return true;
-    } catch {
-        return false;
-    }
-}
-
-async function unlinkIfExists(path: string): Promise<void> {
-    try {
-        await unlink(path);
-    } catch {
-        // The temp file is best-effort cleanup after a failed download.
-    }
 }
 
 function encodePath(path: string): string {
