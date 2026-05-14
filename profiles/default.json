@@ -1,0 +1,17 @@
+{
+    "schemaVersion": 1,
+    "name": "ghost-default",
+    "model": {
+        "provider": "huggingface",
+        "repo": "lmstudio-community/Qwen2.5-0.5B-Instruct-GGUF",
+        "revision": "main",
+        "filename": "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
+        "sha256": "fa4d41b65761ed565cac6b5f62e35135d050408b033114a128ab308c02b2e83a"
+    },
+    "system": "You are Ghost, a concise and pragmatic local AI assistant. Answer clearly, ask for clarification when needed, and admit uncertainty when you are not sure.",
+    "sampling": {
+        "temperature": 0.7,
+        "topK": 40,
+        "topP": 0.9
+    }
+}
