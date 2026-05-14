@@ -13,6 +13,8 @@ This runs inference inside the application process with `node-llama-cpp`, which 
 Downloaded model files are stored under `models/` by default. GGUF files are ignored by
 git because they are usually large.
 
+Use `tmp/profiles/` for local profile experiments. `tmp/` is ignored by git.
+
 ## Setup
 
 ```sh

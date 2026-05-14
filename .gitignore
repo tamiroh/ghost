@@ -74,6 +74,9 @@ web_modules/
 models/
 *.gguf
 
+# Local experiments
+tmp/
+
 # macOS
 .DS_Store
 
