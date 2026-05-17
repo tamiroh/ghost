@@ -1,9 +1,7 @@
-#!/usr/bin/env node
-
-import { createInterface } from "node:readline/promises";
-import { stdin as input, stdout as output } from "node:process";
 import { access } from "node:fs/promises";
 import { resolve } from "node:path";
+import { stdin as input, stdout as output } from "node:process";
+import { createInterface } from "node:readline/promises";
 import { getLlama, LlamaChatSession } from "node-llama-cpp";
 import { resolveModelSource } from "./model-source.ts";
 import { loadProfile } from "./profile.ts";
@@ -23,6 +21,90 @@ const defaultSystemPrompt = "You are a concise, helpful assistant.";
 const defaultTemperature = 0.7;
 const defaultTopK = 40;
 const defaultTopP = 0.9;
+
+export async function cliApp(argv: string[]): Promise<void> {
+    const options = parseArgs(argv);
+    const profile = options.profilePath == null ? undefined : await loadProfile(resolve(options.profilePath));
+    const modelPath = await resolveModelPath(options, profile);
+
+    if (modelPath == null) {
+        printHelp();
+        throw new Error("Missing --profile, --model, LOCAL_LLM_PROFILE, or LOCAL_LLM_MODEL");
+    }
+
+    await assertReadableFile(modelPath);
+
+    const systemPrompt = options.systemPrompt
+        ?? profile?.system
+        ?? process.env.LOCAL_LLM_SYSTEM_PROMPT
+        ?? defaultSystemPrompt;
+    const temperature = options.temperature
+        ?? profile?.sampling?.temperature
+        ?? parseOptionalNumber(process.env.LOCAL_LLM_TEMPERATURE)
+        ?? defaultTemperature;
+    const topK = options.topK
+        ?? profile?.sampling?.topK
+        ?? parseOptionalInteger(process.env.LOCAL_LLM_TOP_K)
+        ?? defaultTopK;
+    const topP = options.topP
+        ?? profile?.sampling?.topP
+        ?? parseOptionalNumber(process.env.LOCAL_LLM_TOP_P)
+        ?? defaultTopP;
+
+    if (profile?.name != null) {
+        console.log(`Profile: ${profile.name}`);
+    }
+
+    console.log(`Loading model: ${modelPath}`);
+    const llama = await getLlama();
+    const model = await llama.loadModel({
+        modelPath,
+        ...(options.gpuLayers == null ? {} : { gpuLayers: options.gpuLayers })
+    });
+
+    const context = await model.createContext({
+        ...(options.contextSize == null ? {} : { contextSize: options.contextSize })
+    });
+
+    const session = new LlamaChatSession({
+        contextSequence: context.getSequence(),
+        systemPrompt
+    });
+
+    console.log("Ready. Type /help for commands, /exit to quit.");
+
+    const rl = createInterface({ input, output });
+    try {
+        while (true) {
+            const message = (await rl.question("\nYou> ")).trim();
+            if (message === "") {
+                continue;
+            }
+
+            if (message === "/exit" || message === "/quit") {
+                break;
+            }
+
+            if (message === "/help") {
+                console.log("Commands: /exit, /quit, /help");
+                continue;
+            }
+
+            output.write("\nAI> ");
+            await session.prompt(message, {
+                temperature,
+                topK,
+                topP,
+                onTextChunk(text) {
+                    output.write(text);
+                }
+            });
+            output.write("\n");
+        }
+    } finally {
+        rl.close();
+    }
+}
 
 function printHelp(): void {
     console.log(`Local LLM chat CLI
@@ -154,90 +236,6 @@ async function assertReadableFile(path: string): Promise<void> {
     }
 }
 
-async function main(): Promise<void> {
-    const options = parseArgs(process.argv.slice(2));
-    const profile = options.profilePath == null ? undefined : await loadProfile(resolve(options.profilePath));
-    const modelPath = await resolveModelPath(options, profile);
-
-    if (modelPath == null) {
-        printHelp();
-        throw new Error("Missing --profile, --model, LOCAL_LLM_PROFILE, or LOCAL_LLM_MODEL");
-    }
-
-    await assertReadableFile(modelPath);
-
-    const systemPrompt = options.systemPrompt
-        ?? profile?.system
-        ?? process.env.LOCAL_LLM_SYSTEM_PROMPT
-        ?? defaultSystemPrompt;
-    const temperature = options.temperature
-        ?? profile?.sampling?.temperature
-        ?? parseOptionalNumber(process.env.LOCAL_LLM_TEMPERATURE)
-        ?? defaultTemperature;
-    const topK = options.topK
-        ?? profile?.sampling?.topK
-        ?? parseOptionalInteger(process.env.LOCAL_LLM_TOP_K)
-        ?? defaultTopK;
-    const topP = options.topP
-        ?? profile?.sampling?.topP
-        ?? parseOptionalNumber(process.env.LOCAL_LLM_TOP_P)
-        ?? defaultTopP;
-
-    if (profile?.name != null) {
-        console.log(`Profile: ${profile.name}`);
-    }
-
-    console.log(`Loading model: ${modelPath}`);
-    const llama = await getLlama();
-    const model = await llama.loadModel({
-        modelPath,
-        ...(options.gpuLayers == null ? {} : { gpuLayers: options.gpuLayers })
-    });
-
-    const context = await model.createContext({
-        ...(options.contextSize == null ? {} : { contextSize: options.contextSize })
-    });
-
-    const session = new LlamaChatSession({
-        contextSequence: context.getSequence(),
-        systemPrompt
-    });
-
-    console.log("Ready. Type /help for commands, /exit to quit.");
-
-    const rl = createInterface({ input, output });
-    try {
-        while (true) {
-            const message = (await rl.question("\nYou> ")).trim();
-            if (message === "") {
-                continue;
-            }
-
-            if (message === "/exit" || message === "/quit") {
-                break;
-            }
-
-            if (message === "/help") {
-                console.log("Commands: /exit, /quit, /help");
-                continue;
-            }
-
-            output.write("\nAI> ");
-            await session.prompt(message, {
-                temperature,
-                topK,
-                topP,
-                onTextChunk(text) {
-                    output.write(text);
-                }
-            });
-            output.write("\n");
-        }
-    } finally {
-        rl.close();
-    }
-}
-
 async function resolveModelPath(
     options: CliOptions,
     profile: Awaited<ReturnType<typeof loadProfile>> | undefined
@@ -256,8 +254,3 @@ async function resolveModelPath(
 
     return undefined;
 }
-
-main().catch((error: unknown) => {
-    console.error(error instanceof Error ? error.message : error);
-    process.exitCode = 1;
-});

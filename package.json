@@ -4,12 +4,12 @@
     "private": true,
     "type": "module",
     "bin": {
-        "ghost": "./dist/index.js"
+        "ghost": "./dist/bin/ghost.js"
     },
     "scripts": {
         "build": "tsc -p tsconfig.json",
-        "dev": "node src/index.ts",
-        "start": "node dist/index.js"
+        "dev": "node bin/ghost.ts",
+        "start": "node dist/bin/ghost.js"
     },
     "dependencies": {
         "node-llama-cpp": "^3.17.1"
