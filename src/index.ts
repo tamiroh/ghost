@@ -5,7 +5,8 @@ import { stdin as input, stdout as output } from "node:process";
 import { access } from "node:fs/promises";
 import { resolve } from "node:path";
 import { getLlama, LlamaChatSession } from "node-llama-cpp";
-import { loadProfile, resolveModelSource } from "./profile.ts";
+import { resolveModelSource } from "./model-source.ts";
+import { loadProfile } from "./profile.ts";
 
 type CliOptions = {
     modelPath?: string;
