@@ -24,43 +24,23 @@ npm install
 ## Run
 
 ```sh
-npm run dev -- --profile ./profiles/default.json
-```
-
-You can still force a local GGUF path:
-
-```sh
-npm run dev -- --model ./models/your-model.gguf
+npm run dev -- ./profiles/default.json
 ```
 
 After building:
 
 ```sh
 npm run build
-npm run start -- --profile ./profiles/default.json
-```
-
-You can also use an environment variable:
-
-```sh
-LOCAL_LLM_PROFILE=./profiles/default.json npm run dev
+npm run start -- ./profiles/default.json
 ```
 
 ## CLI Options
 
 ```txt
--m, --model <path>        Local GGUF model override. Can also use LOCAL_LLM_MODEL.
---profile <path>          Path to a profile JSON file. Can also use LOCAL_LLM_PROFILE.
---system <prompt>         System prompt.
---context-size <tokens>   Requested context size.
---gpu-layers <n|auto>     GPU offload layers.
---temperature <n>         Sampling temperature. Default: 0.7
---top-k <n>               top-k sampling. Default: 40
---top-p <n>               top-p sampling. Default: 0.9
+-h, --help                Show help.
 ```
 
-Inside chat, use `/exit` or `/quit` to stop. CLI flags override profile values, and
-profile values override environment variables.
+The profile path is the only runtime input. Inside chat, use `/exit` or `/quit` to stop.
 
 ## Profile JSON
 
