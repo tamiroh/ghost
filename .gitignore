@@ -76,6 +76,7 @@ models/
 
 # Local experiments
 tmp/
+people/
 
 # macOS
 .DS_Store

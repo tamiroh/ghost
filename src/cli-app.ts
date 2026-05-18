@@ -1,15 +1,39 @@
 import { access } from "node:fs/promises";
-import { resolve } from "node:path";
 import { stdin as input, stdout as output } from "node:process";
 import { createInterface } from "node:readline/promises";
 import { getLlama, LlamaChatSession } from "node-llama-cpp";
+import {
+    extractAndStoreMemories,
+    formatMemoriesForPrompt,
+    readMemories
+} from "./memory.ts";
 import { resolveModelSource } from "./model-source.ts";
-import { loadProfile } from "./profile.ts";
+import { installPerson, loadInstalledPerson, touchPersonLastOpened } from "./person.ts";
 
 export async function cliApp(argv: string[]): Promise<void> {
-    const profilePath = parseProfilePath(argv);
-    const profile = await loadProfile(resolve(profilePath));
+    const command = parseCommand(argv);
+
+    switch (command.name) {
+        case "install": {
+            const installed = await installPerson(command.profilePath);
+            console.log("Installed person.");
+            console.log(`Path: ${installed.path}`);
+            return;
+        }
+        case "chat": {
+            const installed = await loadInstalledPerson(command.person);
+            await touchPersonLastOpened(installed);
+            await runChat(installed);
+            return;
+        }
+    }
+}
+
+async function runChat(installed: Awaited<ReturnType<typeof loadInstalledPerson>>): Promise<void> {
+    const profile = installed.profile;
     const modelPath = await resolveModelSource(profile.model);
+    const memories = await readMemories(installed.memoryPath);
+    const memoryPrompt = formatMemoriesForPrompt(memories);
 
     await assertReadableFile(modelPath);
 
@@ -18,7 +42,9 @@ export async function cliApp(argv: string[]): Promise<void> {
     const topP = profile.sampling?.topP;
 
     if (profile.name != null) {
-        console.log(`Profile: ${profile.name}`);
+        console.log(`Person: ${installed.path} (${profile.name})`);
+    } else {
+        console.log(`Person: ${installed.path}`);
     }
 
     console.log(`Loading model: ${modelPath}`);
@@ -29,7 +55,7 @@ export async function cliApp(argv: string[]): Promise<void> {
 
     const session = new LlamaChatSession({
         contextSequence: context.getSequence(),
-        systemPrompt: profile.system
+        systemPrompt: memoryPrompt === "" ? profile.system : `${profile.system}\n\n${memoryPrompt}`
     });
 
     console.log("Ready. Type /help for commands, /exit to quit.");
@@ -47,12 +73,17 @@ export async function cliApp(argv: string[]): Promise<void> {
             }
 
             if (message === "/help") {
-                console.log("Commands: /exit, /quit, /help");
+                console.log("Commands: /memories, /exit, /quit, /help");
+                continue;
+            }
+
+            if (message === "/memories") {
+                await printMemories(installed.memoryPath);
                 continue;
             }
 
             output.write("\nAI> ");
-            await session.prompt(message, {
+            const response = await session.prompt(message, {
                 ...(temperature == null ? {} : { temperature }),
                 ...(topK == null ? {} : { topK }),
                 ...(topP == null ? {} : { topP }),
@@ -61,46 +92,74 @@ export async function cliApp(argv: string[]): Promise<void> {
                 }
             });
             output.write("\n");
+
+            await extractAndStoreMemories({
+                session,
+                memoryPath: installed.memoryPath,
+                userMessage: message,
+                assistantMessage: response
+            });
         }
     } finally {
         rl.close();
     }
 }
 
+async function printMemories(path: string): Promise<void> {
+    const memories = await readMemories(path);
+    console.log(memories.length === 0
+        ? "No memories."
+        : memories.map((memory, index) => `${index + 1}. ${memory.content}`).join("\n"));
+}
+
 function printHelp(): void {
     console.log(`Local LLM chat CLI
 
 Usage:
-  npm run dev -- ./profiles/default.json
-  npm run start -- ./profiles/default.json
+  npm run dev -- install ./profiles/default.json
+  npm run dev -- chat default
+  npm run start -- install ./profiles/default.json
+  npm run start -- chat default
 
 Options:
   -h, --help                Show this help.
 
 In chat:
+  /memories                 Show memories.
   /exit, /quit              End the session.
   /help                     Show chat commands.
 `);
 }
 
-function parseProfilePath(argv: string[]): string {
+type Command =
+    | { name: "install"; profilePath: string }
+    | { name: "chat"; person: string };
+
+function parseCommand(argv: string[]): Command {
     if (argv.length === 1 && (argv[0] === "-h" || argv[0] === "--help")) {
         printHelp();
         process.exit(0);
     }
 
-    if (argv.length !== 1) {
+    if (argv.length !== 2) {
         printHelp();
-        throw new Error("Expected exactly one profile path");
+        throw new Error("Expected a command and one argument");
     }
 
-    const [profilePath] = argv;
+    const [command, value] = argv;
 
-    if (profilePath.startsWith("-")) {
-        throw new Error(`Expected a profile path, got option-like value: ${profilePath}`);
+    if (value.startsWith("-")) {
+        throw new Error(`Expected a person path or shorthand name, got option-like value: ${value}`);
     }
 
-    return profilePath;
+    switch (command) {
+        case "install":
+            return { name: "install", profilePath: value };
+        case "chat":
+            return { name: "chat", person: value };
+        default:
+            throw new Error(`Unknown command: ${command}`);
+    }
 }
 
 async function assertReadableFile(path: string): Promise<void> {

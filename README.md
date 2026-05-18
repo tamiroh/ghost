@@ -14,6 +14,8 @@ Downloaded model files are stored under `models/` by default. GGUF files are ign
 git because they are usually large.
 
 Use `tmp/profiles/` for local profile experiments. `tmp/` is ignored by git.
+Installed people are stored under `people/`. `people/` is ignored by git because it
+contains local memory and state.
 
 ## Setup
 
@@ -24,14 +26,16 @@ npm install
 ## Run
 
 ```sh
-npm run dev -- ./profiles/default.json
+npm run dev -- install ./profiles/default.json
+npm run dev -- chat default
 ```
 
 After building:
 
 ```sh
 npm run build
-npm run start -- ./profiles/default.json
+npm run start -- install ./profiles/default.json
+npm run start -- chat default
 ```
 
 ## CLI Options
@@ -40,7 +44,20 @@ npm run start -- ./profiles/default.json
 -h, --help                Show help.
 ```
 
-The profile path is the only runtime input. Inside chat, use `/exit` or `/quit` to stop.
+Inside chat, use `/exit` or `/quit` to stop.
+
+Profiles are blueprints. Installing a profile creates a local person directory:
+
+```txt
+people/
+  default/
+    profile.json
+    memory.jsonl
+    state.json
+```
+
+The app automatically extracts long-term memory candidates after each turn and appends
+them to `memory.jsonl`.
 
 ## Profile JSON
 
