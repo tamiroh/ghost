@@ -1,4 +1,5 @@
 import { mkdir, rename } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { assertSha256, downloadFile, fileExists, unlinkIfExists } from "./files.ts";
 
@@ -46,7 +47,7 @@ export async function resolveHuggingFaceModel(model: HuggingFaceModelSource): Pr
 }
 
 function defaultHuggingFaceLocalPath(model: HuggingFaceModelSource): string {
-    return join("models", "huggingface", ...model.repo.split("/"), model.filename);
+    return join(homedir(), ".ghost", "models", "huggingface", ...model.repo.split("/"), model.filename);
 }
 
 function buildHuggingFaceDownloadUrl(model: HuggingFaceModelSource): string {

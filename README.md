@@ -10,12 +10,10 @@ This runs inference inside the application process with `node-llama-cpp`, which 
 - Node.js 24+
 - A profile JSON file that points to a GGUF chat/instruct model
 
-Downloaded model files are stored under `models/` by default. GGUF files are ignored by
-git because they are usually large.
+Downloaded model files are stored under `~/.ghost/models/` by default.
 
 Use `tmp/profiles/` for local profile experiments. `tmp/` is ignored by git.
-Installed people are stored under `people/`. `people/` is ignored by git because it
-contains local memory and state.
+Installed people are stored under `~/.ghost/people/` by default.
 
 ## Setup
 
@@ -49,7 +47,7 @@ Inside chat, use `/exit` or `/quit` to stop.
 Profiles are blueprints. Installing a profile creates a local person directory:
 
 ```txt
-people/
+~/.ghost/people/
   default/
     profile.json
     memory.jsonl

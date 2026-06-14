@@ -1,4 +1,5 @@
 import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { basename, extname, resolve, sep } from "node:path";
 import { fileExists } from "./files.ts";
 import { loadProfile, type ProfileConfig } from "./profile.ts";
@@ -9,7 +10,7 @@ import { loadProfile, type ProfileConfig } from "./profile.ts";
 
 export async function installPerson(profilePath: string): Promise<InstalledPerson> {
     const resolvedProfilePath = resolve(profilePath);
-    const personPath = resolve("people", resolvePersonDirectoryName(resolvedProfilePath));
+    const personPath = resolvePeopleDirectory(resolvePersonDirectoryName(resolvedProfilePath));
 
     if (await fileExists(personPath)) {
         throw new Error(`Person already exists: ${personPath}`);
@@ -46,7 +47,11 @@ function resolvePersonPath(reference: string): string {
         return resolve(reference);
     }
 
-    return resolve("people", reference);
+    return resolvePeopleDirectory(reference);
+}
+
+function resolvePeopleDirectory(name: string): string {
+    return resolve(homedir(), ".ghost", "people", name);
 }
 
 //
